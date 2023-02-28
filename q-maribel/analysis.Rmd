@@ -1,0 +1,18 @@
+---
+---
+---
+
+### ¿Existe alguna relación entre el número de créditos aprobados (num) según el turno de clase (cat) y la edad del enrollment (num)?
+
+# Load libraries
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+# Load data
+
+```{r}
+data <- read.csv("../data/dataset.csv")
+```

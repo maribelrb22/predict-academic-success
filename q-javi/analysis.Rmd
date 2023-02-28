@@ -1,0 +1,18 @@
+---
+---
+---
+
+### ¿Afecta la carrera que estudias a la tasa de aprobados según género y edad del estudiante?
+
+# Load libraries
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+# Load data
+
+```{r}
+data <- read.csv("../data/dataset.csv")
+```
