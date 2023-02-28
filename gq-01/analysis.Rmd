@@ -1,0 +1,92 @@
+---
+---
+---
+
+# Load libraries
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+# Load data
+
+```{r}
+data <- read.csv("../data/dataset.csv")
+```
+
+```{r}
+str(data)
+```
+
+```{r}
+knitr::kable(data[1:10, ], format = "html")
+```
+
+# Data cleaning
+
+```{r}
+data <- data[, c("Mother.s.occupation", "Father.s.occupation", "Curricular.units.1st.sem..enrolled.", "Curricular.units.1st.sem..approved.", "Curricular.units.1st.sem..grade.", "Target")]
+```
+
+```{r}
+data$percentage <- ifelse(data$Curricular.units.1st.sem..enrolled. == 0, 0, data$Curricular.units.1st.sem..approved. / data$Curricular.units.1st.sem..enrolled.)
+```
+
+```{r}
+data$Father.s.occupation <- as.factor(data$Father.s.occupation)
+data$Mother.s.occupation <- as.factor(data$Mother.s.occupation)
+# data$Target <- as.factor(data$Target)
+```
+
+```{r}
+p1 <- ggplot(data, aes(x = Father.s.occupation, y = percentage)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+p2 <- ggplot(data, aes(x = Father.s.occupation)) +
+    geom_bar()
+
+ggarrange(p1, p2, ncol = 1, nrow = 2)
+```
+
+```{r}
+p3 <- ggplot(data, aes(x = Mother.s.occupation, y = percentage)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+p4 <- ggplot(data, aes(x = Mother.s.occupation)) +
+    geom_bar()
+
+ggarrange(p3, p4, ncol = 1, nrow = 2)
+```
+
+```{r}
+data$Parent.occupation <- paste(data$Father.s.occupation, data$Mother.s.occupation, sep = "-")
+```
+
+```{r}
+freq_occupations <- sort(table(data$Parent.occupation), decreasing = TRUE)[1:10]
+```
+
+```{r}
+data <- data[data$Parent.occupation %in% names(freq_occupations), ]
+```
+
+```{r}
+p1 <- ggplot(data, aes(x = Parent.occupation, y = percentage)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+p2 <- ggplot(data, aes(x = Parent.occupation, fill = Target)) +
+  geom_bar(position = "stack", aes(y = ..count..)) + 
+  scale_fill_manual(values = c("red", "blue", "green")) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), legend.position = "bottom")
+
+ggarrange(p1, p2, heights = c(4,4), ncol = 1, nrow = 2)
+```
+
+```{r}
+my_plot <- ggarrange(p1, p2, heights = c(4,4), ncol = 1, nrow = 2)
+ggsave("my_plot.png", plot = my_plot, width = 10, height = 10, units = "in")
+```
