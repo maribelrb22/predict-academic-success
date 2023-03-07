@@ -66,3 +66,43 @@ data %>%
     title = "Número de alumnos en cada carrera según Quartiles de PIB y Tasa de desempleo",
     x = "Carrera", y = "Número de alumnos"
   )
+
+library(shiny)
+library(plotly)
+library(dplyr)
+
+data <- read.csv("dataset.csv")
+min(data$GDP)
+max(data$GDP)
+ui <- fluidPage(
+  titlePanel("Variación de las carreras elegidas por los estudiantes en función del GDP"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput(inputId = "gdp_slider", label = "Seleccione un rango de GDP", min = -5.0, max = 5, value = c(-5.0, 5))
+    ),
+    mainPanel(
+      plotlyOutput(outputId = "career_plot")
+    )
+  )
+)
+
+server <- function(input, output) {
+  
+  output$career_plot <- renderPlotly({
+    
+    data_filtered <- data %>%
+      filter(GDP >= input$gdp_slider[1] & GDP <= input$gdp_slider[2]) %>%
+      group_by(Course) %>%
+      summarise(count = n())
+    
+    plot <- plot_ly(data_filtered, x = ~Course, y = ~count, type = "bar", color = ~count, colors = "Blues") %>%
+      layout(title = "Carreras elegidas en función del GDP",
+             xaxis = list(title = "Carreras"),
+             yaxis = list(title = "Número de estudiantes"),
+             coloraxis = list(colorbar = list(title = "Número de estudiantes")))
+    
+    return(plot)
+  })
+}
+
+shinyApp(ui, server)
