@@ -1,0 +1,158 @@
+---
+title: "Estudio de variables que afectan a la nota media obtenido por los alumnos"
+author: "Jose Luis Alonso"
+date: "2023-03-09"
+output: html_document
+---
+## Load libreries
+```{r}
+library(readr);library(dplyr);library(ggplot2);library(plotly);library(shiny)
+library(dplyr);library(plotly);library(tidyr);library(fmsb);library(radarchart)
+library(ggthemes);library(hrbrthemes);library(ggridges);library(ggcorrplot);hrbrthemes::import_roboto_condensed()
+library(hexbin)
+```
+
+
+#Load data
+```{r}
+data <- read_csv("../data/dataset.csv")
+```
+
+
+###¿Influye que un alumno sea desplazado o no en la nota?
+#Calculo de las notas medias
+```{r}
+data$MeanGrade <- (data$`Curricular units 1st sem (approved)` + data$`Curricular units 2nd sem (approved)`) / 2
+```
+
+
+#Create a dataframe with only the columns of interest
+```{r}
+notas_desplazado <- data[,c("MeanGrade", "Displaced")]
+```
+
+
+#Create histogram
+```{r}
+ggplot(notas_desplazado, aes(x = MeanGrade, fill = as.factor(Displaced))) +
+  geom_histogram(alpha = 0.5, position = position_stack(vjust = 0), 
+                 color = "black", binwidth = 0.5, boundary = 0) +
+  xlab("Media de notas obtenida") +
+  ylab("Frecuencia") +
+  ggtitle("Distribución de la media de notas obtenida por alumnos desplazados y no desplazados") +
+  scale_fill_manual(values = c("red", "blue"), labels = c("Desplazado", "No desplazado"))
+```
+
+
+#Create density plot
+```{r}
+ggplot(notas_desplazado, aes(x=MeanGrade, fill=as.factor(Displaced))) +
+  geom_density(alpha=0.5) +
+  xlab("Media de notas obtenida") +
+  ylab("Densidad") +
+  ggtitle("Distribución de la media de notas obtenida por alumnos desplazados y no desplazados") +
+  scale_fill_manual(values=c("red", "blue"), labels=c("Desplazado", "No desplazado"))
+```
+
+
+#We calculate students with and without scholarships separately.
+```{r}
+scholarship <- subset(data, data$`Scholarship holder` == 1)
+no_scholarship <- subset(data, data$`Scholarship holder` == 0)
+```
+
+
+#Average grade and age of students with scholarships
+```{r}
+ggplot(data = scholarship, aes(x = scholarship$`Age at enrollment`, y = scholarship$MeanGrade )) +
+  geom_point(color = "blue") +
+  labs(title = "Nota media y edad de los alumnos con beca") +
+  xlab("Edad al aplicar a la carrera") +
+  ylab("Nota media") +
+  theme_minimal()
+```
+
+  
+#Average grade and age of students without scholarship
+```{r}
+ggplot(data = no_scholarship, aes(x = no_scholarship$`Age at enrollment`, y = no_scholarship$MeanGrade)) +
+  geom_point(color = "red") +
+  labs(title = "Nota media y edad de los alumnos sin beca") +
+  xlab("Edad al aplicar a la carrera") +
+  ylab("Nota media") +
+  theme_minimal()
+```
+
+
+#Distribution of the average score of students with and without scholarships
+```{r}
+ggplot(data = data, aes(x = as.factor(data$`Scholarship holder`), y = data$MeanGrade)) +
+  geom_boxplot(fill="slateblue", alpha=0.2) +
+  labs(title = "Distribución de la nota media de los alumnos con y sin beca") +
+  xlab("¿Posee beca?") +
+  ylab("Nota media") +
+  theme_minimal()
+```
+
+
+#Density plot comparison: MeanGrade between Scholarship holders
+```{r}
+ggplot(data = data, aes(x = MeanGrade, group = as.factor(data$`Scholarship holder`), fill = as.factor(data$`Scholarship holder`))) +
+  geom_density(adjust = 3) +
+  facet_wrap(as.factor(data$`Scholarship holder`)) +
+  scale_fill_manual(values = c("#0072B2", "#E69F00")) + 
+  xlab("Nota media") +
+  ylab("Densidad") +
+  ggtitle("Densidad de alumnos con nota media dependiendo de si tienen beca")
+  theme(
+    legend.position = "none",
+    panel.spacing = unit(0.1, "lines"),
+    axis.ticks.x = element_blank()
+  )
+```
+  
+  
+#Violin chart
+```{r}
+ggplot(data = data, aes(x = as.factor(`Scholarship holder`), y = MeanGrade, fill = as.factor(Displaced))) +
+  geom_violin(scale = "count") +
+  scale_fill_manual(values = c("#0072B2", "#E69F00")) +
+  labs(x = "¿Posee beca?", y = "Nota media") +
+  ggtitle("Nota media entre alumnos becados y desplazados") +
+  theme_bw()
+```
+
+
+
+# Create ridgeline chart to compare the average grade between scholarship and displaced students
+```{r}
+ggplot(data = data, aes(x = MeanGrade, y = as.factor(`Scholarship holder`), fill = as.factor(Displaced))) +
+  geom_density_ridges(alpha = 0.8, scale = 2, rel_min_height = 0.01, color = "white") +
+  scale_fill_manual(values = c("#0072B2", "#E69F00")) +
+  labs(x = "Nota media", y = "¿Posee beca?", fill = "¿Alumno desplazado?") +
+  ggtitle("Nota media entre alumnos becados y desplazados") +
+  theme_ipsum() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  )
+
+```
+
+
+#Test ANOVA
+```{r}
+modelo <- aov(data$MeanGrade ~ data$`Scholarship holder` + data$Displaced, data=data)
+qqnorm(resid(modelo))
+qqline(resid(modelo))
+anova(modelo)
+```
+
+
+#Test POST HOC
+```{r}
+modelo <- aov(data$MeanGrade ~ as.factor(data$`Scholarship holder`) + as.factor(data$Displaced), data=data)
+tukey <- TukeyHSD(modelo)
+tukey
+```
+
