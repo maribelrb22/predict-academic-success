@@ -1,6 +1,6 @@
 ---
-title: ¿Cómo afecta la situación familiar y del país a las carreras elegidas por los
-  alumnos?
+title: ¿Cómo influye la situación macroeconómica del país en las carreras elegidas por los alumnos?
+De
 author: "Jose Luis Alonso y Fernando Alonso"
 date: "2023-03-09"
 output: html_document
@@ -33,7 +33,7 @@ max(data$GDP)
 #Generamos UI con los sliders
 
 ui <- fluidPage(
-  titlePanel("Variación de las carreras elegidas por los estudiantes en función de la situación familar y el país"),
+  titlePanel("Variación de las carreras elegidas por los estudiantes en función de la situación macroeconómica del país"),
   sidebarLayout(
     sidebarPanel(
       sliderInput(inputId = "gdp_slider", label = "Seleccione un rango de GDP", min = -5.0, max = 5, value = c(-5.0, 5)),
@@ -86,7 +86,7 @@ server <- function(input, output) {
     plot_ly(data_filtered, x = ~Course, y = ~count, type = "bar", text = ~count,
           marker = list(color = ~count, colorscale = "Blues"), 
           textfont = list(size = 14, color = "white"))  %>%
-      layout(title = "Carreras elegidas en función de la situación familiar y del país",
+      layout(title = "Carreras elegidas en función de la situación macroeconómica",
              xaxis = list(title = "Carreras"),
              yaxis = list(title = "Número de estudiantes"),
              coloraxis = list(colorbar = list(title = "Número de estudiantes")))
