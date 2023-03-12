@@ -39,7 +39,7 @@ ggplot(creditos_desplazado, aes(x = CreditsApp, fill = as.factor(Displaced))) +
                  color = "black", binwidth = 0.5, boundary = 0) +
   xlab("Media de créditos aprobados") +
   ylab("Frecuencia") +
-  ggtitle("Distribución de la media de créditos superados por alumnos desplazados y no desplazados") +
+  ggtitle("Distribución de la media de créditos superados por alumnos desplazados") +
   scale_fill_manual(values = c("red", "blue"), labels = c("Desplazado", "No desplazado"))
 ```
 
@@ -73,7 +73,7 @@ ggplot(data = scholarship, aes(x = scholarship$`Age at enrollment`, y = scholars
 ```
 
   
-#Average grade and age of students without scholarship
+#Average credits approved and age of students without scholarship
 ```{r}
 ggplot(data = no_scholarship, aes(x = no_scholarship$`Age at enrollment`, y = no_scholarship$CreditsApp)) +
   geom_point(color = "red") +
@@ -95,7 +95,7 @@ ggplot(data = data, aes(x = as.factor(data$`Scholarship holder`), y = data$Credi
 ```
 
 
-#Density plot comparison: MeanGrade between Scholarship holders
+#Density plot comparison: CreditApp between Scholarship holders
 ```{r}
 ggplot(data = data, aes(x = CreditsApp, group = as.factor(data$`Scholarship holder`), fill = as.factor(data$`Scholarship holder`))) +
   geom_density(adjust = 3) +
@@ -103,7 +103,7 @@ ggplot(data = data, aes(x = CreditsApp, group = as.factor(data$`Scholarship hold
   scale_fill_manual(values = c("#0072B2", "#E69F00")) + 
   xlab("Media de créditos aprobados") +
   ylab("Densidad") +
-  ggtitle("Densidad de alumnos con media de créditos aprobados dependiendo de si tienen beca")
+  ggtitle("Alumnos con media de créditos aprobados respecto a becas")
   theme(
     legend.position = "none",
     panel.spacing = unit(0.1, "lines"),
@@ -134,7 +134,8 @@ ggplot(data = data, aes(x = CreditsApp, y = as.factor(`Scholarship holder`), fil
   theme_ipsum() +
   theme(
     legend.position = "bottom",
-    legend.direction = "horizontal"
+    legend.direction = "horizontal",
+    plot.title = element_text(size = 12)
   )
 
 ```
