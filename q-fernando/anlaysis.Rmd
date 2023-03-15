@@ -1,0 +1,181 @@
+---
+title: "¿Existe una correlación entre el estado civil de los estudiantes y su rendimiento académico (media de unidades curriculares aprobadas entre primer y segundo semestre)?"
+author: "Fernando Alonso Martín"
+date: "2023-03-11"
+output: html_document
+---
+
+## Cargar librerías
+
+```{r}
+library(ggplot2)
+library(reshape2)
+require(shiny)
+```
+
+## Cargar datos
+
+```{r}
+data <- read.csv("../data/dataset.csv", header = TRUE, sep = ",")
+```
+
+## ¿Existe una correlación entre el estado civil de los estudiantes y su rendimiento académico (media de unidades curriculares aprobadas entre primer y segundo semestre)?
+
+### Cálculo de la media de ud. curriculares aporbadas y de la nota media
+
+```{r}
+data$Curricular.units.mean <- (data$Curricular.units.1st.sem..approved. + data$Curricular.units.2nd.sem..approved.) / 2
+data$Curricular.mark.mean <- (data$Curricular.units.1st.sem..grade. + data$Curricular.units.1st.sem..grade.) / 2
+
+```
+
+### Cálculo matriz de correlación
+
+```{r}
+cor_matrix <- cor(data[c("Curricular.units.mean", "ï..Marital.status", "Gender")], use="pairwise.complete.obs")
+colnames(cor_matrix) <- c('Estado Civil', "Media Ud Curriculares Aprobadas", 'Género')
+rownames(cor_matrix) <- c('Estado Civil', "Media Ud Curriculares Aprobadas", 'Género')
+
+```
+
+### Cambio de variables numéricas a categóricas
+
+```{r}
+data$ï..Marital.status <- factor(data$ï..Marital.status,
+                                 levels = c(1, 2, 3, 4, 5, 6),
+                                 labels = c("Single", "Married", "Widower", "Divorced", "Facto union", "Legally separated"))
+
+# Cambiar la variable numérica a su significado con respecto al género
+data$Gender <- factor(data$Gender, levels = c(0, 1), labels = c("Female", "Male"))
+
+```
+
+### Matriz de correlación
+
+```{r}
+ggplot(melt(cor_matrix), aes(x=Var1, y=Var2, fill=value)) +
+      geom_tile() +
+      scale_fill_gradient2(low="#D3D3D3", mid="#FFFFFF", high="#FFDAB9", midpoint=0) +
+      labs(x="Variables", y="Variables", title="Correlación entre variables") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1),
+            plot.title = element_text(hjust = 0.5))
+```
+
+### Gráfico de caja para analizar el rendimiento académico según el Estado Civil
+
+```{r}
+ggplot(data, aes(x = factor(ï..Marital.status), y = Curricular.units.mean)) + 
+      geom_boxplot() +
+      ggtitle("Rendimiento Académico según el Estado Civil") +
+      ylab("Media de Unidades Curriculares Aprobadas") +
+      xlab("Estado Civil") +
+      scale_fill_discrete(name = "Estado Civil") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Gráfico de densidad para analizar el rendimiento académico según el Estado Civil
+
+```{r}
+  ggplot(data, aes(x=Curricular.units.mean, fill=ï..Marital.status)) +
+    geom_density(alpha=0.5) +
+    labs(x="Media de Unidades Curriculares Aprobados", y="Density", fill = "Estado Civil") +
+    theme_minimal()
+```
+
+## ¿Y si diferenciamos por géneros, se logra apreciar alguna correlación o anomalía?
+
+### Cargar UI de Shiny
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Análisis del Rendimiento Académico según el Estado Civil y Género"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("maritalStatus", "Seleccionar estado civil",
+                  choices = c("Single", "Married", "Widower", "Divorced", "Facto union", "Legally separated", "Todos")),
+      selectInput("gender", "Seleccionar género",
+                  choices = c("Male", "Female", "Todos"))
+    ),
+    
+    mainPanel(
+      plotOutput("plot6"),
+      plotOutput("plot7"),
+      plotOutput("plot8"),
+      plotOutput("plot9")
+    )
+  )
+)
+```
+
+### Cargar Server de Shiny
+
+```{r}
+# Server
+server <- function(input, output) {
+  
+  # Función para filtrar los datos según el estado civil y género seleccionados
+  filteredData <- reactive({
+    if (input$maritalStatus == "Todos" & input$gender == "Todos") {
+      return(data)
+    } else if (input$maritalStatus == "Todos") {
+      return(subset(data, Gender == input$gender))
+    } else if (input$gender == "Todos") {
+      return(subset(data, ï..Marital.status == input$maritalStatus))
+    } else {
+      return(subset(data, ï..Marital.status == input$maritalStatus & Gender == input$gender))
+    }
+  })
+  
+  # Gráfica de cajas para evaluar el rendimiento académico según el Estado Civil y el Género
+  output$plot6 <- renderPlot({
+    ggplot(filteredData(), aes(x = factor(ï..Marital.status), y = Curricular.units.mean, fill = factor(Gender))) + 
+      geom_boxplot() +
+      ggtitle("Rendimiento Académico según el Estado Civil y Género") +
+      ylab("Media de Unidades Curriculares Aprobadas") +
+      xlab("Estado Civil") +
+      scale_fill_discrete(name = "Estado Civil") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  })
+  
+  # Gráfica de densidad para evaluar el rendimiento académico según el Estado Civil y el Género
+  output$plot7 <- renderPlot({
+    ggplot(filteredData(), aes(x=Curricular.units.mean, fill=ï..Marital.status)) +
+      geom_density(alpha=0.5) +
+      labs(x="Media de Unidades Curriculares Aprobados", y="Density", fill = "Estado Civil") +
+      facet_wrap(~Gender, nrow=1) +
+      theme_minimal()
+  })
+  
+  # Gráfica de densidad para averiguar la nota media según el Género
+  output$plot8 <- renderPlot({
+    ggplot(filteredData(), aes(x=Curricular.mark.mean, fill=ï..Marital.status)) +
+      geom_density(alpha=0.5) +
+      labs(x="Nota Media", y="Density", fill = "Estado Civil") +
+      facet_wrap(~Gender, nrow=1) +
+      theme_minimal()
+  })
+  
+  # Gráfica de cajas para averiguar la nota media según el Género
+  output$plot9 <- renderPlot({
+    ggplot(filteredData(), aes(x = factor(ï..Marital.status), y = Curricular.mark.mean, fill = factor(Gender))) + 
+      geom_boxplot() +
+      ggtitle("Rendimiento Académico según el Estado Civil y Género") +
+      ylab("Nota Media") +
+      xlab("Estado Civil") +
+      scale_fill_discrete(name = "Estado Civil") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  })
+}
+
+```
+
+### Ejecutar el paquete Shiny
+
+```{r}
+shinyApp(ui, server)
+```
