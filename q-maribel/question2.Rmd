@@ -1,0 +1,99 @@
+---
+title: "Relación entre fase de matriculación y rendimiento académico"
+---
+
+# Load libraries
+
+```{r}
+library(ggplot2)
+library(fmsb)
+library(fastDummies)
+library(RColorBrewer)
+library(scales)
+library(gridExtra)
+library(dplyr)
+```
+
+# Load data
+
+```{r}
+data <- read.csv("../data/dataset.csv")
+str(data)
+```
+
+**Preprocesamiento**
+
+```{r}
+data$Application.mode <- as.factor(data$Application.mode)
+```
+
+```{r}
+names <- c("Biofuel Production Technologies", "Animation and Multimedia Design", "Social Service (evening attendance)", "Agronomy", "Communication Design", "Veterinary Nursing", "Informatics Engineering", "Equiniculture", "Management", "Social Service", "Tourism", "Nursing", "Oral Hygiene", "Advertising and Marketing Management", "Journalism and Communication", "Basic Education", "Management (evening attendance)")
+data$Course <- names[data$Course]
+```
+
+```{r}
+data <- data[data$Application.mode == 1 | data$Application.mode == 8 | data$Application.mode == 9, ]
+```
+
+**Visualization**
+
+```{r}
+ggplot(data, aes(x = Application.mode, fill = Target)) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(values = c("#FF0000", "#00FF00", "#0000FF")) +
+    labs(x = "Application mode", y = "Count", fill = "Target") +
+    scale_x_discrete(labels = c("1 fase general", "2 fase general", "3 fase general")) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+**Test estadísticos**
+
+```{r}
+chisq.test(data$Application.mode, data$Target)
+```
+
+**Visualización avanzada y tests estadísticos**
+
+```{r}
+set.seed(123)
+
+for (course in unique(data$Course)) {
+    data_course <- data[data$Course == course, ]
+    chisqtest <- chisq.test(data_course$Application.mode, data_course$Target)
+    p_value <- round(chisqtest$p.value, digits = 3)
+
+    data_dummy <- fastDummies::dummy_cols(data_course, select_columns = "Target")
+    data_dummy <- data_dummy[, c("Target_Enrolled", "Target_Graduate", "Target_Dropout", "Application.mode", "Course")]
+
+    data_dummy <- data_dummy %>%
+        group_by(Application.mode) %>%
+        summarise(Enrolled = mean(Target_Enrolled), Graduate = mean(Target_Graduate), Dropout = mean(Target_Dropout))
+    
+    data_dummy <- as.data.frame(data_dummy)
+    
+    rownames(data_dummy) <- ifelse(data_dummy$Application.mode == 1, "Fase general 1", ifelse(data_dummy$Application.mode == 8, "Fase general 2", "Fase general 3"))
+    
+    data_dummy <- rbind(rep(1,3) , rep(0,3) , data_dummy)
+    data_dummy <- data_dummy[, -c(1)]
+
+    # Set graphic colors
+  
+    coul <- brewer.pal(3, "Set1")
+    colors_border <- coul
+    colors_in <- alpha(coul, 0.3)
+    
+    radarchart( data_dummy, axistype=1 , 
+    #custom polygon
+    pcol=colors_border , pfcol=colors_in , plwd=2 , plty=1,
+    #custom the grid
+    cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,1,0.25), cglwd=0.8,
+    #custom labels
+    vlcex=0.8 ,
+    title = paste(course, p_value, sep = "\n p-value: "),
+    )
+
+# Add a legend
+legend(x=0.7, y=1, legend = rownames(data_dummy[-c(1,2),]), bty = "n", pch=20, col=colors_in , text.col = "black", cex=1, pt.cex=2)
+}
+```
