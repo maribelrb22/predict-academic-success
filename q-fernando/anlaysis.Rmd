@@ -38,6 +38,13 @@ rownames(cor_matrix) <- c('Estado Civil', "Media Ud Curriculares Aprobadas", 'G�
 
 ```
 
+### Cálculo test de hipótesis nula
+
+```{r}
+cor.test(data$Curricular.units.mean, data$ï..Marital.status, method="pearson")
+
+```
+
 ### Cambio de variables numéricas a categóricas
 
 ```{r}
