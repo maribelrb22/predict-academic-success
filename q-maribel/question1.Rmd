@@ -1,0 +1,111 @@
+---
+title: "Relación entre necesidades educativas especiales y elección de carreras universitarias"
+---
+
+## Load libraries
+
+En primer lugar, se cargan las librerías necesarias para el análisis y visualización de los datos.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+```
+
+## Load data
+
+A continuación, se cargan los datos y se realiza un análisis exploratorio de los mismos.
+
+```{r}
+data <- read.csv("../data/dataset.csv")
+str(data)
+```
+
+## Pre-processing
+
+Para poder trabajar con las columnas "Course" y "Educational.special.needs" es necesario convertirlas a factores.
+
+```{r}
+data$Educational.special.needs <- as.factor(data$Educational.special.needs)
+data$Course <- as.factor(data$Course)
+```
+
+Tras ello, nos quedamos únicamente con los cursos que tienen alumnos con necesidades educativas especiales.
+
+```{r}
+data_special_needs <- data[data$Educational.special.needs == 1, ]
+courses <- sort(unique(data_special_needs$Course))
+data <- data[data$Course %in% courses, ]
+```
+
+Para evaluar la complejidad de un curso, se ha decidido utilizar el porcentaje de alumnos que han abandonado dicho curso.
+
+```{r}
+data_dropout <- data[data$Target == "Dropout", ]
+data_dropout <- data_dropout %>%
+       group_by(Course) %>%
+       summarise(percentage = n() / nrow(data_dropout))
+```
+
+## Data visualization
+
+En la siguiente gráfica se puede observar el número de alumnos con necesidades educativas especiales por curso, así como el porcentaje de alumnos que han abandonado cada curso.
+
+```{r}
+p1 <- ggplot(data_special_needs, aes(x = Course)) +
+       geom_bar() +
+       theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+       labs(
+              title = "Nº. de estudiantes con necesidades educativas especiales por curso",
+              x = "Cursos",
+              y = "Número de estudiantes"
+       )
+
+p2 <- ggplot(data_dropout, aes(x = Course, y = percentage)) +
+       geom_bar(stat = "identity") +
+       theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+       labs(
+              title = "Porcentaje de abandono por curso (todos los estudiantes)",
+              x = "Cursos",
+              y = "Porcentaje de dropout"
+       )
+
+ggarrange(p1, p2, ncol = 1, nrow = 2)
+```
+
+## Correlation
+
+Para evaluar la relación entre el número de alumnos con necesidades educativas especiales y el porcentaje de alumnos que han abandonado cada curso, se ha calculado el coeficiente de correlación de Pearson.
+
+```{r}
+data_special_needs <- data_special_needs %>%
+       group_by(Course) %>%
+       summarise(number = n())
+data_special_needs$Course <- as.numeric(data_special_needs$Course)
+```
+
+```{r}
+correlation <- cor(data_special_needs$Course, data_dropout$percentage)
+correlation
+```
+
+## Linear regression
+
+A continuación, se ha realizado una regresión lineal para evaluar la relación entre el número de alumnos con necesidades educativas especiales y el porcentaje de alumnos que han abandonado cada curso.
+
+```{r}
+data_special_needs$Course <- as.numeric(data_special_needs$Course)
+data <- data_dropout
+data$Course <- data_special_needs$Course
+```
+
+```{r}
+ggplot(data = data, aes(x = Course, y = percentage)) +
+       geom_smooth(method = lm, se = TRUE) +
+       geom_point() +
+       labs(x = "Estudiantes con necesidades especiales", y = "Porcentaje de suspensos") +
+       annotate("text",
+              x = min(data$Course) + 1, y = max(data$percentage),
+              label = paste("R =", round(correlation, 2)), size = 5
+       )
+```

@@ -2,17 +2,119 @@
 ---
 ---
 
-### ¿Afecta la carrera que estudias a la tasa de aprobados según género y edad del estudiante?
+### ¿Afecta la carrera que estudias a la tasa de creditos aprobados en el primer y segundo semestre?
 
-# Load libraries
+# Carga de librerias
 
 ```{r}
 library(ggplot2)
 library(ggpubr)
+library(caret)
+library(arules)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(dplyr)
 ```
 
-# Load data
+# Carga de datos
 
 ```{r}
 data <- read.csv("../data/dataset.csv")
+str(data)
+```
+
+# Preprocesamiento
+
+```{r}
+data$percentage1st <- ifelse(data$Curricular.units.1st.sem..enrolled. == 0, 0, data$Curricular.units.1st.sem..approved. / data$Curricular.units.1st.sem..enrolled.)
+data$percentage2nd <- ifelse(data$Curricular.units.2nd.sem..enrolled. == 0, 0, data$Curricular.units.2nd.sem..approved. / data$Curricular.units.2nd.sem..enrolled.)
+head(data)
+```
+
+```{r}
+names <- c("Biofuel Production Technologies", "Animation and Multimedia Design", "Social Service (evening attendance)", "Agronomy", "Communication Design", "Veterinary Nursing", "Informatics Engineering", "Equiniculture", "Management", "Social Service", "Tourism", "Nursing", "Oral Hygiene", "Advertising and Marketing Management", "Journalism and Communication", "Basic Education", "Management (evening attendance)")
+data$Course_name <- names[data$Course]
+head(data)
+```
+
+# Minería de datos
+
+```{r}
+set.seed(50)
+data1st <- data[, c("Course_name", "percentage1st")]
+data1st$Course_name <- as.factor(data1st$Course_name)
+data1st$percentage1st <- discretize(data1st$percentage1st, method = "cluster")
+rules1st <- apriori(data1st, parameter = list(minlen = 2, supp = 0.001))
+rules1st <- sort(rules1st, by = "lift", decreasing = TRUE)
+inspect(rules1st)
+
+data2nd <- data[, c("Course_name", "percentage2nd")]
+data2nd$Course_name <- as.factor(data2nd$Course_name)
+data2nd$percentage2nd <- discretize(data2nd$percentage2nd, method = "cluster")
+rules2nd <- apriori(data2nd, parameter = list(minlen = 2, supp = 0.001))
+rules2nd <- sort(rules2nd, by = "lift", decreasing = TRUE)
+inspect(rules2nd)
+```
+
+# Visualización de datos
+
+```{r}
+ggplot(data, aes(x = Course_name, y = percentage1st)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    coord_flip()
+
+ggplot(data, aes(x = Course_name, y = percentage2nd)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))+
+    coord_flip()
+```
+
+# Modelo de clasificación
+
+```{r}
+set.seed(123)
+data1st2nd <- data[, c("Course_name", "percentage1st", "percentage2nd")]
+inTrain <- createDataPartition(data1st2nd$Course_name, p = 0.7, list = FALSE)
+training <- data1st2nd[inTrain, ]
+testing <- data1st2nd[-inTrain, ]
+
+model <- rpart(Course_name ~ percentage1st + percentage2nd, data = training, method = "class")
+predict <- predict(model, testing, type = "class")
+
+predict <- as.factor(predict)
+real <- as.factor(testing$Course_name)
+table <- table(predict, real)
+table <- as.data.frame(table)
+
+sum_values_per_real <- table %>% group_by(real) %>% summarise(sum_freq = sum(Freq))
+table <- table %>% left_join(sum_values_per_real, by = "real") %>% mutate(Freq = Freq / sum_freq) %>% select(-sum_freq)
+table$Freq <- round(table$Freq, 3)
+
+ggplot(table, aes(x = real, y = predict, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), size = 3) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    scale_fill_gradient(low = "white", high = "blue")
+```
+
+# Correlación entre variables
+
+```{r}
+data_dummies <- data[, c("Course_name", "percentage1st")]
+data_dummies <- dummyVars("~ .", data = data_dummies) %>% predict(data)
+data_dummies <- as.data.frame(data_dummies)
+
+model <- lm(percentage1st ~ ., data = data_dummies)
+summary(model)
+```
+
+```{r}
+data_dummies <- data[, c("Course_name", "percentage2nd")]
+data_dummies <- dummyVars("~ .", data = data_dummies) %>% predict(data)
+data_dummies <- as.data.frame(data_dummies)
+
+model <- lm(percentage2nd ~ ., data = data_dummies)
+summary(model)
 ```

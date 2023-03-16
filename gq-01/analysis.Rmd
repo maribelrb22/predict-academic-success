@@ -2,14 +2,18 @@
 ---
 ---
 
-# Load libraries
+# Pregunta: ¿Afecta la ocupación de los padres al éxito académico de los alumnos?
+
+# Carga de librerias
 
 ```{r}
 library(ggplot2)
 library(ggpubr)
+library(caret)
+library(arules)
 ```
 
-# Load data
+# Carga de datos
 
 ```{r}
 data <- read.csv("../data/dataset.csv")
@@ -23,70 +27,90 @@ str(data)
 knitr::kable(data[1:10, ], format = "html")
 ```
 
-# Data cleaning
+# Preprocesamiento
 
 ```{r}
-data <- data[, c("Mother.s.occupation", "Father.s.occupation", "Curricular.units.1st.sem..enrolled.", "Curricular.units.1st.sem..approved.", "Curricular.units.1st.sem..grade.", "Target")]
+names <- c("Student", "Representatives of the Legislative Power and Executive Bodies, Directors, Directors and Executive Managers", "Specialists in Intellectual and Scientific Activities", "Intermediate Level Technicians and Professions", "Administrative staff", "Personal Services, Security and Safety Workers, and Sellers", "Farmers and Skilled Workers in Agriculture, Fisheries, and Forestry", "Skilled Workers in Industry, Construction, and Craftsmen", "Installation and Machine Operators and Assembly Workers", "Unskilled Workers", "Armed Forces Professions", "Other Situation", "Armed Forces Officers", "Armed Forces Sergeants", "Other Armed Forces personnel", "Directors of administrative and commercial services", "Hotel, catering, trade, and other services directors", "Specialists in the physical sciences, mathematics, engineering, and related techniques", "Health professionals", "Teachers", "Specialists in finance, accounting, administrative organization, and public and commercial relations", "Intermediate level science and engineering technicians and professions", "Technicians and professionals of intermediate level of health", "Intermediate level technicians from legal, social, sports, cultural, and similar services", "Information and communication technology technicians", "Office workers, secretaries in general, and data processing operators", "Data, accounting, statistical, financial services, and registry-related operators", "Other administrative support staff", "Personal service workers", "Sellers", "Personal care workers and the like", "Protection and security services personnel", "Market-oriented farmers and skilled agricultural and animal production workers", "Farmers, livestock keepers, fishermen, hunters and gatherers, and subsistence", "Skilled construction workers and the like, except electricians", "Skilled workers in metallurgy, metalworking, and similar", "Skilled workers in electricity and electronics", "Workers in food processing, woodworking, and clothing and other industries and crafts", "Fixed plant and machine operators", "Assembly workers", "Vehicle drivers and mobile equipment operators", "Unskilled workers in agriculture, animal production, and fisheries and forestry", "Unskilled workers in extractive industry, construction, manufacturing, and transport", "Meal preparation assistants", "Street vendors (except food) and street service providers")
+data$Father.s.occupation_named <- names[data$Father.s.occupation]
+data$Mother.s.occupation_named <- names[data$Mother.s.occupation]
+
+data_rules <- data[, c("Target", "Father.s.occupation_named", "Mother.s.occupation_named")]
+```
+
+# Reglas de asociación
+
+```{r}
+rules <- apriori(data_rules, parameter = list(minlen=3, maxlen=3 , supp=0.01, conf=0.6), appearance = list(rhs=c("Target=Dropout", "Target=Graduate"), default="lhs"))
+rules.ord = sort(rules, by="lift")
+inspect(rules.ord)
 ```
 
 ```{r}
-data$percentage <- ifelse(data$Curricular.units.1st.sem..enrolled. == 0, 0, data$Curricular.units.1st.sem..approved. / data$Curricular.units.1st.sem..enrolled.)
+data_parent <- data[data$Target %in% c("Dropout", "Graduate"), ]
+data_parent$Target <- as.factor(ifelse(data_parent$Target == "Dropout", 0, 1))
+data_parent$Parent.occupation <- paste(data_parent$Father.s.occupation, data_parent$Mother.s.occupation, sep = " - ")
+data_parent <- data_parent[, c("Target", "Parent.occupation")]
 ```
 
 ```{r}
-data$Father.s.occupation <- as.factor(data$Father.s.occupation)
-data$Mother.s.occupation <- as.factor(data$Mother.s.occupation)
-# data$Target <- as.factor(data$Target)
+freq_occupations <- sort(table(data_parent$Parent.occupation), decreasing = TRUE)[1:15]
+data_parent <- data_parent[data_parent$Parent.occupation %in% names(freq_occupations), ]
+head(data_parent)
 ```
 
 ```{r}
-p1 <- ggplot(data, aes(x = Father.s.occupation, y = percentage)) +
-    geom_boxplot() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-
-p2 <- ggplot(data, aes(x = Father.s.occupation)) +
-    geom_bar()
-
-ggarrange(p1, p2, ncol = 1, nrow = 2)
+ggplot(data_parent, aes(x = Parent.occupation, fill = Target)) +
+    geom_bar(position = "fill") 
 ```
 
 ```{r}
-p3 <- ggplot(data, aes(x = Mother.s.occupation, y = percentage)) +
-    geom_boxplot() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+data_parent_dummies <- dummyVars( ~ ., data = data_parent) %>% predict(data_parent)
+data_parent_dummies <- as.data.frame(data_parent_dummies)
+data_parent_dummies <- subset(data_parent_dummies, select = -c(data_parent_dummies$Target.0))
 
-p4 <- ggplot(data, aes(x = Mother.s.occupation)) +
-    geom_bar()
-
-ggarrange(p3, p4, ncol = 1, nrow = 2)
+model <- glm(Target.1 ~ ., data = data_parent_dummies, family = binomial)
+summary(model)
 ```
 
 ```{r}
-data$Parent.occupation <- paste(data$Father.s.occupation, data$Mother.s.occupation, sep = "-")
+names <- c("Secondary Education", "Higher Education", "Higher Education", "Higher Education", "Higher Education", "Frequency of Higher Education", "12th Year of Schooling", "11th Year of Schooling", "7th Year", "Other", "2nd year complementary high school course", "10th Year of Schooling", "General commerce course", "Basic Education", "Complementary High School Course", "Technical-professional course", "Complementary High School Course", "7th year of schooling", "2nd cycle of the general high school course", "9th Year of Schooling", "8th year of schooling", "General Course of Administration and Commerce", "Supplementary Accounting and Administration", "Unknown", "Cannot read or write", "Can read without having a 4th year of schooling", "Basic education 1st cycle", "Basic Education 2nd Cycle", "Technological specialization course", "Higher education", "Specialized higher studies course", "Professional higher technical course", "Higher Education", "Higher Education")
+data$Father.s.qualification_named <- names[data$Father.s.qualification]
+data$Mother.s.qualification_named <- names[data$Mother.s.qualification]
+data_1_1 <- data[data$Father.s.occupation == "1" & data$Mother.s.occupation == "1", ]
+
+data_1_1_father <- data_1_1
+data_1_1_father$parent <- "father"
+data_1_1_father$qualification <- data_1_1_father$Father.s.qualification_named
+data_1_1_father <- data_1_1_father[, c("parent", "qualification")]
+
+data_1_1_mother <- data_1_1
+data_1_1_mother$parent <- "mother"
+data_1_1_mother$qualification <- data_1_1_mother$Mother.s.qualification_named
+data_1_1_mother <- data_1_1_mother[, c("parent", "qualification")]
+
+data_1_1 <- rbind(data_1_1_father, data_1_1_mother)
+
+ggplot(data=data_1_1, aes(x=qualification, fill=parent)) +
+geom_bar()+
+coord_flip() 
 ```
 
 ```{r}
-freq_occupations <- sort(table(data$Parent.occupation), decreasing = TRUE)[1:10]
-```
+data_8_10 <- data[data$Father.s.occupation == "8" & data$Mother.s.occupation == "10", ]
 
-```{r}
-data <- data[data$Parent.occupation %in% names(freq_occupations), ]
-```
+data_8_10_father <- data_8_10
+data_8_10_father$parent <- "father"
+data_8_10_father$qualification <- data_8_10_father$Father.s.qualification_named
+data_8_10_father <- data_8_10_father[, c("parent", "qualification")]
 
-```{r}
-p1 <- ggplot(data, aes(x = Parent.occupation, y = percentage)) +
-    geom_boxplot() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+data_8_10_mother <- data_8_10
+data_8_10_mother$parent <- "mother"
+data_8_10_mother$qualification <- data_8_10_mother$Mother.s.qualification_named
+data_8_10_mother <- data_8_10_mother[, c("parent", "qualification")]
 
-p2 <- ggplot(data, aes(x = Parent.occupation, fill = Target)) +
-  geom_bar(position = "stack", aes(y = ..count..)) + 
-  scale_fill_manual(values = c("red", "blue", "green")) + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), legend.position = "bottom")
+data_8_10 <- rbind(data_8_10_father, data_8_10_mother)
 
-ggarrange(p1, p2, heights = c(4,4), ncol = 1, nrow = 2)
-```
-
-```{r}
-my_plot <- ggarrange(p1, p2, heights = c(4,4), ncol = 1, nrow = 2)
-ggsave("my_plot.png", plot = my_plot, width = 10, height = 10, units = "in")
+ggplot(data=data_8_10, aes(x=qualification, fill=parent)) +
+geom_bar()+
+coord_flip() 
 ```
